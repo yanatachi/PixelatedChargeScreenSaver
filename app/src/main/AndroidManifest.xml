@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="Pixelated Charge"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+        <!-- アプリ起動用（設定画面へのリンク） -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- スクリーンセーバー本体（OSの選択画面に Pixelated Charge と表示されます） -->
+        <service
+            android:name=".PixelChargingDreamService"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Pixelated Charge"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+
+    </application>
+</manifest>

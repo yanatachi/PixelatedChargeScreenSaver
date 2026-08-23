@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import kotlin.random.Random
 
 fun formatMinutes(minutes: Long): String {
     return if (minutes >= 60) {
@@ -37,7 +39,7 @@ fun formatMinutes(minutes: Long): String {
     }
 }
 
-// 充電数値用のスリムフォント（wdth = 25f）
+
 @OptIn(ExperimentalTextApi::class)
 val GoogleSansFlexRoundedSlimLight = FontFamily(
     Font(
@@ -62,7 +64,7 @@ val GoogleSansFlexRoundedSlimBold = FontFamily(
     )
 )
 
-// 時計や残り時間用の通常のフォントファミリー（wdth = 100f）
+
 @OptIn(ExperimentalTextApi::class)
 val GoogleSansFlexRoundedNormalLight = FontFamily(
     Font(
@@ -83,13 +85,35 @@ fun PixelChargingScreen(
     isCharging: Boolean,
     hasAlarm: Boolean
 ) {
+    val context = LocalContext.current
     var currentTime by remember { mutableStateOf("") }
 
+    // 焼き付き防止のためのオフセット座標（X, Y）
+    var offsetX by remember { mutableIntStateOf(0) }
+    var offsetY by remember { mutableIntStateOf(0) }
+
+    // 現在時刻の更新
     LaunchedEffect(Unit) {
         val formatter = DateTimeFormatter.ofPattern("HH:mm")
         while (true) {
             currentTime = LocalTime.now().format(formatter)
             delay(1000L)
+        }
+    }
+
+    // 焼き付き防止のタイロジック（設定された分数ごとに位置をランダムにずらす）
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("PixelatedChargePrefs", android.content.Context.MODE_PRIVATE)
+        while (true) {
+            // SharedPreferencesから設定された分数を取得（デフォルトは5分）
+            val intervalMinutes = prefs.getInt("burn_in_interval", 5)
+            val intervalMillis = intervalMinutes * 60 * 1000L
+
+            delay(intervalMillis)
+
+            // 焼き付き防止として、上下左右に少しだけ（例: -15px 〜 +15px の範囲で）ランダムにずらす
+            offsetX = Random.nextInt(-15, 16)
+            offsetY = Random.nextInt(-15, 16)
         }
     }
 
@@ -103,23 +127,25 @@ fun PixelChargingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            // 焼き付き防止のオフセットを画面全体に適用（少しずつ位置が移動します）
+            .offset(x = offsetX.dp, y = offsetY.dp)
             .padding(24.dp)
     ) {
-        // --- 画面右側：プログレスバーと数値 ---
+
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight(0.85f)
                 .width(IntrinsicSize.Max)
         ) {
-            // 1. アラームアイコン ＆ 充電バーをまとめた列（右端に配置）
+
             Column(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // アラームアイコン（バーの真上に配置）
+
                 Box(
                     modifier = Modifier.size(20.dp),
                     contentAlignment = Alignment.Center
@@ -136,7 +162,7 @@ fun PixelChargingScreen(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // 充電バー本体
+
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -185,14 +211,14 @@ fun PixelChargingScreen(
                 }
             }
 
-            // 2. テキスト情報（バーの構造と比率を完全に同期）
+
             Column(
                 modifier = Modifier
                     .fillMaxHeight()
                     .padding(end = 20.dp),
                 horizontalAlignment = Alignment.End
             ) {
-                // アイコンとSpacerの高さ分を空けてバーの開始位置に合わせる
+
                 Spacer(modifier = Modifier.height(20.dp))
                 Spacer(modifier = Modifier.height(6.dp))
 
@@ -202,7 +228,7 @@ fun PixelChargingScreen(
                         .width(IntrinsicSize.Max),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // 上のバーに対応するエリア (100% -> バーの一番上の真左)
+
                     Box(
                         modifier = Modifier
                             .weight(0.25f)
@@ -228,7 +254,7 @@ fun PixelChargingScreen(
                         }
                     }
 
-                    // 下のバーに対応するエリア (80% -> 区切りの先端＝下のバーの最上部に沿わせる)
+
                     Box(
                         modifier = Modifier
                             .weight(0.75f)
@@ -256,7 +282,7 @@ fun PixelChargingScreen(
                 }
             }
 
-            // 3. 下部: 現在のパーセンテージ
+
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -282,7 +308,7 @@ fun PixelChargingScreen(
             }
         }
 
-        // --- 画面下部：時刻 & ステータス文言（そのまま） ---
+
         Column(
             modifier = Modifier.align(Alignment.BottomCenter),
             horizontalAlignment = Alignment.CenterHorizontally

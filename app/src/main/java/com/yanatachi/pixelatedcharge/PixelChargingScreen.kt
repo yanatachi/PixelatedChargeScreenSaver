@@ -39,7 +39,7 @@ fun formatMinutes(minutes: Long): String {
     }
 }
 
-
+// --- フォントの定義 ---
 @OptIn(ExperimentalTextApi::class)
 val GoogleSansFlexRoundedSlimLight = FontFamily(
     Font(
@@ -64,7 +64,6 @@ val GoogleSansFlexRoundedSlimBold = FontFamily(
     )
 )
 
-
 @OptIn(ExperimentalTextApi::class)
 val GoogleSansFlexRoundedNormalLight = FontFamily(
     Font(
@@ -77,6 +76,10 @@ val GoogleSansFlexRoundedNormalLight = FontFamily(
     )
 )
 
+val NdotFont = FontFamily(Font(resId = R.font.ndot))
+val NtypeFont = FontFamily(Font(resId = R.font.ntype))
+
+
 @Composable
 fun PixelChargingScreen(
     level: Int,
@@ -88,11 +91,15 @@ fun PixelChargingScreen(
     val context = LocalContext.current
     var currentTime by remember { mutableStateOf("") }
 
-    // 焼き付き防止のためのオフセット座標（X, Y）
     var offsetX by remember { mutableIntStateOf(0) }
     var offsetY by remember { mutableIntStateOf(0) }
 
-    // 現在時刻の更新
+    val prefs = remember { context.getSharedPreferences("PixelatedChargePrefs", android.content.Context.MODE_PRIVATE) }
+    var selectedFont by remember {
+        mutableStateOf(prefs.getString("selected_font", "GoogleSansFlex") ?: "GoogleSansFlex")
+    }
+
+    // 時刻の更新
     LaunchedEffect(Unit) {
         val formatter = DateTimeFormatter.ofPattern("HH:mm")
         while (true) {
@@ -101,21 +108,46 @@ fun PixelChargingScreen(
         }
     }
 
-    // 焼き付き防止のタイロジック（設定された分数ごとに位置をランダムにずらす）
+    // 焼き付き防止 & 設定の定期同期
     LaunchedEffect(Unit) {
-        val prefs = context.getSharedPreferences("PixelatedChargePrefs", android.content.Context.MODE_PRIVATE)
         while (true) {
-            // SharedPreferencesから設定された分数を取得（デフォルトは5分）
+            selectedFont = prefs.getString("selected_font", "GoogleSansFlex") ?: "GoogleSansFlex"
+
             val intervalMinutes = prefs.getInt("burn_in_interval", 5)
             val intervalMillis = intervalMinutes * 60 * 1000L
 
             delay(intervalMillis)
 
-            // 焼き付き防止として、上下左右に少しだけ（例: -15px 〜 +15px の範囲で）ランダムにずらす
             offsetX = Random.nextInt(-15, 16)
             offsetY = Random.nextInt(-15, 16)
         }
     }
+
+    val activeFontFamily = when (selectedFont) {
+        "Ndot" -> NdotFont
+        "Ntype" -> NtypeFont
+        else -> GoogleSansFlexRoundedSlimLight
+    }
+
+    val activeFontFamilyBold = when (selectedFont) {
+        "Ndot" -> NdotFont
+        "Ntype" -> NtypeFont
+        else -> GoogleSansFlexRoundedSlimBold
+    }
+
+    val activeFontFamilyNormal = when (selectedFont) {
+        "Ndot" -> NdotFont
+        "Ntype" -> NtypeFont
+        else -> GoogleSansFlexRoundedNormalLight
+    }
+
+    val isGoogleSans = selectedFont == "GoogleSansFlex"
+
+    // 下の現在の％はそのまま
+    val bottomTextEndPadding = 20.dp
+
+    // 上の80%/100%ブロックの追加の右方向へのオフセット（Ndot/Ntypeのときだけもっと右へ寄せる：+12dp分）
+    val topExtraOffsetX = if (isGoogleSans) 0.dp else 50.dp
 
     val statusText = when {
         level >= 100 -> "充電完了"
@@ -127,7 +159,6 @@ fun PixelChargingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            // 焼き付き防止のオフセットを画面全体に適用（少しずつ位置が移動します）
             .offset(x = offsetX.dp, y = offsetY.dp)
             .padding(24.dp)
     ) {
@@ -212,10 +243,12 @@ fun PixelChargingScreen(
             }
 
 
+            // 【上部】100% と 80% のブロック（offsetでさらに右側に押し出す）
             Column(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .padding(end = 20.dp),
+                    .padding(end = 8.dp)
+                    .offset(x = topExtraOffsetX), // ここでさらに右へ！
                 horizontalAlignment = Alignment.End
             ) {
 
@@ -240,15 +273,15 @@ fun PixelChargingScreen(
                                 text = "100%",
                                 color = Color.White,
                                 fontSize = 28.sp,
-                                fontFamily = GoogleSansFlexRoundedSlimBold,
-                                modifier = Modifier.scale(scaleX = 1.0f, scaleY = 1.35f)
+                                fontFamily = activeFontFamilyBold,
+                                modifier = if (isGoogleSans) Modifier.scale(scaleX = 1.0f, scaleY = 1.35f) else Modifier
                             )
                             if (minTo100 >= 0 && level < 100) {
                                 Text(
                                     text = formatMinutes(minTo100),
                                     color = Color.LightGray,
                                     fontSize = 14.sp,
-                                    fontFamily = GoogleSansFlexRoundedNormalLight
+                                    fontFamily = activeFontFamilyNormal
                                 )
                             }
                         }
@@ -266,15 +299,15 @@ fun PixelChargingScreen(
                                 text = "80%",
                                 color = Color.White,
                                 fontSize = 28.sp,
-                                fontFamily = GoogleSansFlexRoundedSlimBold,
-                                modifier = Modifier.scale(scaleX = 1.0f, scaleY = 1.35f)
+                                fontFamily = activeFontFamilyBold,
+                                modifier = if (isGoogleSans) Modifier.scale(scaleX = 1.0f, scaleY = 1.35f) else Modifier
                             )
                             if (minTo80 >= 0 && level < 80) {
                                 Text(
                                     text = formatMinutes(minTo80),
                                     color = Color.LightGray,
                                     fontSize = 14.sp,
-                                    fontFamily = GoogleSansFlexRoundedNormalLight
+                                    fontFamily = activeFontFamilyNormal
                                 )
                             }
                         }
@@ -283,27 +316,30 @@ fun PixelChargingScreen(
             }
 
 
+            // 【下部】現在の % 表示（ここはそのまま）
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 20.dp),
+                    .padding(end = bottomTextEndPadding),
                 verticalAlignment = Alignment.Bottom
             ) {
                 Text(
                     text = "$level",
                     color = Color.White,
                     fontSize = 86.sp,
-                    fontFamily = GoogleSansFlexRoundedSlimLight,
-                    modifier = Modifier.scale(scaleX = 1.0f, scaleY = 1.55f)
+                    fontFamily = activeFontFamily,
+                    modifier = if (isGoogleSans) Modifier.scale(scaleX = 1.0f, scaleY = 1.55f) else Modifier
                 )
                 Text(
                     text = "%",
                     color = Color.White,
                     fontSize = 30.sp,
-                    fontFamily = GoogleSansFlexRoundedSlimLight,
-                    modifier = Modifier
-                        .padding(bottom = 12.dp, start = 4.dp)
-                        .scale(scaleX = 1.0f, scaleY = 1.35f)
+                    fontFamily = activeFontFamily,
+                    modifier = if (isGoogleSans) {
+                        Modifier.padding(bottom = 12.dp, start = 4.dp).scale(scaleX = 1.0f, scaleY = 1.35f)
+                    } else {
+                        Modifier.padding(bottom = 12.dp, start = 4.dp)
+                    }
                 )
             }
         }
@@ -317,7 +353,7 @@ fun PixelChargingScreen(
                 text = currentTime,
                 color = Color.White,
                 fontSize = 22.sp,
-                fontFamily = GoogleSansFlexRoundedNormalLight
+                fontFamily = activeFontFamilyNormal
             )
 
             Spacer(modifier = Modifier.height(2.dp))
@@ -326,7 +362,7 @@ fun PixelChargingScreen(
                 text = statusText,
                 color = Color.Gray,
                 fontSize = 12.sp,
-                fontFamily = GoogleSansFlexRoundedNormalLight
+                fontFamily = activeFontFamilyNormal
             )
         }
     }
